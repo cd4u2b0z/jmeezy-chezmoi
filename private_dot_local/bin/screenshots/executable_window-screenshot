@@ -1,0 +1,18 @@
+#!/bin/bash
+# Current Window Screenshot
+# Capture the focused window
+
+SCREENSHOT_DIR="$HOME/Pictures/Screenshots"
+mkdir -p "$SCREENSHOT_DIR"
+
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+FILENAME="$SCREENSHOT_DIR/window_$TIMESTAMP.png"
+
+# Get current window geometry
+if WINDOW_GEOM=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"'); then
+    grim -g "$WINDOW_GEOM" "$FILENAME"
+    grim -g "$WINDOW_GEOM" - | wl-copy
+    notify-send "Screenshot" "Window saved to $FILENAME and copied to clipboard" -i "$FILENAME"
+else
+    notify-send "Screenshot" "Could not capture window"
+fi

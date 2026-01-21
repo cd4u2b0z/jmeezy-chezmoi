@@ -1,0 +1,282 @@
+#!/usr/bin/env bash
+
+# ╔═══════════════════════════════════════════════════════════════════╗
+# ║  ⚡ POWER STATUS SCRIPT                                           ║
+# ║  Monitor power management status for craig@grim-reefer           ║
+# ╚═══════════════════════════════════════════════════════════════════╝
+
+set -euo pipefail
+
+# ═══════════════════════════════════════════════════════════════════
+# 🎨 NORD COLORS
+# ═══════════════════════════════════════════════════════════════════
+
+readonly NORD_BLUE='\033[38;2;129;161;193m'
+readonly NORD_GREEN='\033[38;2;163;190;140m'
+readonly NORD_YELLOW='\033[38;2;235;203;139m'
+readonly NORD_RED='\033[38;2;191;97;106m'
+readonly NORD_PURPLE='\033[38;2;180;142;173m'
+readonly NORD_CYAN='\033[38;2;136;192;208m'
+readonly NORD_RESET='\033[0m'
+
+# ═══════════════════════════════════════════════════════════════════
+# 🔋 POWER INFORMATION FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+get_battery_info() {
+    if [[ -d /sys/class/power_supply/BAT* ]]; then
+        local bat_path
+        bat_path=$(find /sys/class/power_supply -name "BAT*" -type d | head -1)
+        
+        if [[ -n "$bat_path" ]]; then
+            local capacity status
+            capacity=$(cat "$bat_path/capacity" 2>/dev/null || echo "N/A")
+            status=$(cat "$bat_path/status" 2>/dev/null || echo "N/A")
+            
+            local color=""
+            case "$status" in
+                "Charging") color="$NORD_GREEN" ;;
+                "Discharging") 
+                    if [[ "$capacity" -lt 20 ]]; then
+                        color="$NORD_RED"
+                    elif [[ "$capacity" -lt 50 ]]; then
+                        color="$NORD_YELLOW"
+                    else
+                        color="$NORD_GREEN"
+                    fi
+                    ;;
+                "Full") color="$NORD_CYAN" ;;
+                *) color="$NORD_BLUE" ;;
+            esac
+            
+            echo -e "🔋 Battery: ${color}${capacity}% (${status})${NORD_RESET}"
+        else
+            echo -e "🔋 Battery: ${NORD_BLUE}Not found${NORD_RESET}"
+        fi
+    else
+        echo -e "🔋 Battery: ${NORD_BLUE}Desktop system${NORD_RESET}"
+    fi
+}
+
+get_ac_adapter_info() {
+    if [[ -d /sys/class/power_supply/A* ]]; then
+        local ac_path
+        ac_path=$(find /sys/class/power_supply -name "A*" -type d | head -1)
+        
+        if [[ -n "$ac_path" ]]; then
+            local online
+            online=$(cat "$ac_path/online" 2>/dev/null || echo "0")
+            
+            if [[ "$online" == "1" ]]; then
+                echo -e "🔌 AC Adapter: ${NORD_GREEN}Connected${NORD_RESET}"
+            else
+                echo -e "🔌 AC Adapter: ${NORD_RED}Disconnected${NORD_RESET}"
+            fi
+        else
+            echo -e "🔌 AC Adapter: ${NORD_BLUE}Not found${NORD_RESET}"
+        fi
+    else
+        echo -e "🔌 AC Adapter: ${NORD_GREEN}Desktop system${NORD_RESET}"
+    fi
+}
+
+get_display_status() {
+    if command -v hyprctl &> /dev/null; then
+        local monitors
+        monitors=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.dpmsStatus == true) | .name' 2>/dev/null || echo "")
+        
+        if [[ -n "$monitors" ]]; then
+            local count
+            count=$(echo "$monitors" | wc -l)
+            echo -e "🖥️  Displays: ${NORD_GREEN}${count} active${NORD_RESET}"
+        else
+            echo -e "🖥️  Displays: ${NORD_YELLOW}All off${NORD_RESET}"
+        fi
+    else
+        echo -e "🖥️  Displays: ${NORD_BLUE}Status unknown${NORD_RESET}"
+    fi
+}
+
+get_lock_status() {
+    if pgrep -x "hyprlock" > /dev/null; then
+        echo -e "🔒 Lock Screen: ${NORD_GREEN}Active${NORD_RESET}"
+    else
+        echo -e "🔒 Lock Screen: ${NORD_BLUE}Unlocked${NORD_RESET}"
+    fi
+}
+
+get_idle_status() {
+    if pgrep -x "hypridle" > /dev/null; then
+        echo -e "⏰ Idle Manager: ${NORD_GREEN}Running${NORD_RESET}"
+    else
+        echo -e "⏰ Idle Manager: ${NORD_RED}Not running${NORD_RESET}"
+    fi
+}
+
+get_brightness_info() {
+    if command -v brightnessctl &> /dev/null; then
+        local brightness
+        brightness=$(brightnessctl get 2>/dev/null || echo "N/A")
+        local max_brightness
+        max_brightness=$(brightnessctl max 2>/dev/null || echo "N/A")
+        
+        if [[ "$brightness" != "N/A" && "$max_brightness" != "N/A" ]]; then
+            local percentage
+            percentage=$((brightness * 100 / max_brightness))
+            
+            local color=""
+            if [[ "$percentage" -lt 30 ]]; then
+                color="$NORD_YELLOW"
+            else
+                color="$NORD_GREEN"
+            fi
+            
+            echo -e "☀️  Brightness: ${color}${percentage}%${NORD_RESET}"
+        else
+            echo -e "☀️  Brightness: ${NORD_BLUE}Not available${NORD_RESET}"
+        fi
+    else
+        echo -e "☀️  Brightness: ${NORD_BLUE}brightnessctl not found${NORD_RESET}"
+    fi
+}
+
+get_suspend_hibernate_status() {
+    local can_suspend can_hibernate
+    can_suspend=$(systemctl can-suspend 2>/dev/null || echo "no")
+    can_hibernate=$(systemctl can-hibernate 2>/dev/null || echo "no")
+    
+    if [[ "$can_suspend" == "yes" ]]; then
+        echo -e "💤 Suspend: ${NORD_GREEN}Available${NORD_RESET}"
+    else
+        echo -e "💤 Suspend: ${NORD_RED}Not available${NORD_RESET}"
+    fi
+    
+    if [[ "$can_hibernate" == "yes" ]]; then
+        echo -e "🛏️  Hibernate: ${NORD_GREEN}Available${NORD_RESET}"
+    else
+        echo -e "🛏️  Hibernate: ${NORD_RED}Not available${NORD_RESET}"
+    fi
+}
+
+get_uptime_info() {
+    if [[ -f /proc/uptime ]]; then
+        local uptime_seconds
+        uptime_seconds=$(cut -d. -f1 /proc/uptime)
+        
+        local days hours minutes
+        days=$((uptime_seconds / 86400))
+        hours=$(((uptime_seconds % 86400) / 3600))
+        minutes=$(((uptime_seconds % 3600) / 60))
+        
+        local uptime_str=""
+        if [[ "$days" -gt 0 ]]; then
+            uptime_str="${days}d ${hours}h ${minutes}m"
+        elif [[ "$hours" -gt 0 ]]; then
+            uptime_str="${hours}h ${minutes}m"
+        else
+            uptime_str="${minutes}m"
+        fi
+        
+        echo -e "⏱️  Uptime: ${NORD_CYAN}${uptime_str}${NORD_RESET}"
+    else
+        echo -e "⏱️  Uptime: ${NORD_BLUE}Unknown${NORD_RESET}"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 📊 MAIN STATUS DISPLAY
+# ═══════════════════════════════════════════════════════════════════
+
+show_status() {
+    echo -e "${NORD_PURPLE}╔═══════════════════════════════════════════════════════════════════╗${NORD_RESET}"
+    echo -e "${NORD_PURPLE}║${NORD_RESET}  ⚡ ${NORD_CYAN}POWER MANAGEMENT STATUS${NORD_RESET} - $(date +'%Y-%m-%d %H:%M:%S')  ${NORD_PURPLE}║${NORD_RESET}"
+    echo -e "${NORD_PURPLE}╠═══════════════════════════════════════════════════════════════════╣${NORD_RESET}"
+    echo -e "${NORD_PURPLE}║${NORD_RESET}                                                                   ${NORD_PURPLE}║${NORD_RESET}"
+    
+    # Power status
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_battery_info)"
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_ac_adapter_info)"
+    
+    echo -e "${NORD_PURPLE}║${NORD_RESET}                                                                   ${NORD_PURPLE}║${NORD_RESET}"
+    
+    # Display and session status
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_display_status)"
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_brightness_info)"
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_lock_status)"
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_idle_status)"
+    
+    echo -e "${NORD_PURPLE}║${NORD_RESET}                                                                   ${NORD_PURPLE}║${NORD_RESET}"
+    
+    # System capabilities
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_suspend_hibernate_status | head -1)"
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_suspend_hibernate_status | tail -1)"
+    printf "${NORD_PURPLE}║${NORD_RESET}  %-65s ${NORD_PURPLE}║${NORD_RESET}\n" "$(get_uptime_info)"
+    
+    echo -e "${NORD_PURPLE}║${NORD_RESET}                                                                   ${NORD_PURPLE}║${NORD_RESET}"
+    echo -e "${NORD_PURPLE}╚═══════════════════════════════════════════════════════════════════╝${NORD_RESET}"
+}
+
+show_quick_status() {
+    get_battery_info
+    get_ac_adapter_info
+    get_lock_status
+    get_idle_status
+}
+
+show_usage() {
+    cat << EOF
+${NORD_BLUE}⚡ Power Status Script${NORD_RESET}
+
+${NORD_GREEN}USAGE:${NORD_RESET}
+  $(basename "$0") [OPTIONS]
+
+${NORD_GREEN}OPTIONS:${NORD_RESET}
+  status, -s    Show full power management status (default)
+  quick, -q     Show quick status summary
+  watch, -w     Watch status with auto-refresh (5 second interval)
+  --help, -h    Show this help message
+
+${NORD_GREEN}EXAMPLES:${NORD_RESET}
+  $(basename "$0")          # Show full status
+  $(basename "$0") quick    # Show quick summary
+  $(basename "$0") watch    # Watch with auto-refresh
+EOF
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 🚀 MAIN EXECUTION
+# ═══════════════════════════════════════════════════════════════════
+
+main() {
+    case "${1:-status}" in
+        "status"|"-s")
+            show_status
+            ;;
+        "quick"|"-q")
+            show_quick_status
+            ;;
+        "watch"|"-w")
+            while true; do
+                clear
+                show_status
+                sleep 5
+            done
+            ;;
+        "--help"|"-h"|"help")
+            show_usage
+            ;;
+        *)
+            echo -e "${NORD_RED}Error: Unknown option '$1'${NORD_RESET}"
+            echo
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+# Check for required dependencies
+if ! command -v jq &> /dev/null; then
+    echo -e "${NORD_YELLOW}Warning: jq not found. Some display information may not be available.${NORD_RESET}"
+fi
+
+main "$@"

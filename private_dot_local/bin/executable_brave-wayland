@@ -1,0 +1,31 @@
+#!/bin/bash
+# ╔═══════════════════════════════════════════════════════════════════╗
+# ║  🛡️ BRAVE WAYLAND LAUNCHER - 4K OPTIMIZED                       ║
+# ║  Optimized launch script for Brave on Wayland with 4K           ║
+# ╚═══════════════════════════════════════════════════════════════════╝
+
+# Set Wayland-specific environment variables
+export ELECTRON_OZONE_PLATFORM_HINT=wayland
+export CHROMIUM_FLAGS="--ozone-platform=wayland"
+
+# Native 4K without scaling for maximum crispness
+export GDK_SCALE=1
+export QT_SCALE_FACTOR=1
+
+# Launch Brave with optimized flags - using the command that works
+exec brave \
+    --enable-features=UseOzonePlatform,VaapiVideoDecoder,WebRTCPipeWireCapturer,VaapiVideoEncoder \
+    --ozone-platform=wayland \
+    --enable-gpu-rasterization \
+    --enable-zero-copy \
+    --enable-hardware-overlays \
+    --disable-gpu-sandbox \
+    --enable-accelerated-video-decode \
+    --enable-accelerated-video-encode \
+    --ignore-gpu-blocklist \
+    --use-gl=desktop \
+    --enable-raw-draw \
+    --canvas-oop-rasterization \
+    --disable-dev-shm-usage \
+    --disable-software-rasterizer \
+    "$@"

@@ -1,0 +1,75 @@
+#!/bin/bash
+# ╔═══════════════════════════════════════════════════════════════════╗
+# ║  🎨 THEME SWITCHER - EASY DARK THEME CONFIGURATION               ║
+# ║  Apply beautiful Nord dark theme to all GTK applications         ║
+# ╚═══════════════════════════════════════════════════════════════════╝
+
+echo "🎨 Applying Nord Dark Theme..."
+
+# Kill any running theme-related processes
+pkill -f thunar 2>/dev/null
+pkill -f lxappearance 2>/dev/null
+
+# Apply GTK theme settings with 4K-friendly sizes
+gsettings set org.gnome.desktop.interface gtk-theme 'Arc-Dark'
+gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark'
+gsettings set org.gnome.desktop.interface cursor-theme 'Adwaita'
+gsettings set org.gnome.desktop.interface font-name 'Inter 14'
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+
+# Force dark theme preference
+gsettings set org.gnome.desktop.interface gtk-application-prefer-dark-theme true
+
+# Apply to Xfce/Thunar specifically with larger fonts
+xfconf-query -c xsettings -p /Net/ThemeName -s "Arc-Dark" 2>/dev/null || true
+xfconf-query -c xsettings -p /Net/IconThemeName -s "Papirus-Dark" 2>/dev/null || true
+xfconf-query -c xsettings -p /Gtk/FontName -s "Inter 14" 2>/dev/null || true
+
+# Create/update GTK-2.0 config for legacy apps
+mkdir -p ~/.gtkrc-2.0.d
+cat > ~/.gtkrc-2.0 << 'EOF'
+gtk-theme-name="Arc-Dark"
+gtk-icon-theme-name="Papirus-Dark"
+gtk-font-name="Inter 14"
+gtk-cursor-theme-name="Adwaita"
+gtk-application-prefer-dark-theme=1
+EOF
+
+# Create/update GTK-3.0 config
+mkdir -p ~/.config/gtk-3.0
+cat > ~/.config/gtk-3.0/settings.ini << 'EOF'
+[Settings]
+gtk-theme-name=Arc-Dark
+gtk-icon-theme-name=Papirus-Dark
+gtk-font-name=Inter 14
+gtk-cursor-theme-name=Adwaita
+gtk-application-prefer-dark-theme=1
+gtk-button-images=1
+gtk-menu-images=1
+EOF
+
+# Create/update GTK-4.0 config
+mkdir -p ~/.config/gtk-4.0
+cat > ~/.config/gtk-4.0/settings.ini << 'EOF'
+[Settings]
+gtk-theme-name=Arc-Dark
+gtk-icon-theme-name=Papirus-Dark
+gtk-font-name=Inter 14
+gtk-cursor-theme-name=Adwaita
+gtk-application-prefer-dark-theme=1
+EOF
+
+# Force environment variables
+export GTK_THEME=Arc-Dark
+export GTK2_RC_FILES=~/.gtkrc-2.0
+
+echo "✅ Dark theme applied!"
+echo ""
+echo "🚀 Available theme tools:"
+echo "   • lxappearance - Classic GTK theme manager"
+echo "   • nwg-look - Modern Wayland theme manager"
+echo ""
+echo "📁 Restart Thunar to see the changes:"
+echo "   thunar &"
+echo ""
+echo "🎯 Theme should now be Nord Dark with Papirus icons!"

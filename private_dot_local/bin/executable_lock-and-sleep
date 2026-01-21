@@ -1,0 +1,241 @@
+#!/usr/bin/env bash
+
+# ╔═══════════════════════════════════════════════════════════════════╗
+# ║  🔒 LOCK AND SLEEP SCRIPT                                         ║
+# ║  Secure lock with optional suspend for craig@grim-reefer         ║
+# ╚═══════════════════════════════════════════════════════════════════╝
+
+set -euo pipefail
+
+# ═══════════════════════════════════════════════════════════════════
+# 🎨 COLORS AND STYLING
+# ═══════════════════════════════════════════════════════════════════
+
+readonly NORD_BLUE='\033[38;2;129;161;193m'
+readonly NORD_GREEN='\033[38;2;163;190;140m'
+readonly NORD_YELLOW='\033[38;2;235;203;139m'
+readonly NORD_RED='\033[38;2;191;97;106m'
+readonly NORD_RESET='\033[0m'
+
+# ═══════════════════════════════════════════════════════════════════
+# 📝 LOGGING FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+log_info() {
+    echo -e "${NORD_BLUE}[INFO]${NORD_RESET} $*" | tee -a ~/.local/log/power-management.log
+}
+
+log_success() {
+    echo -e "${NORD_GREEN}[SUCCESS]${NORD_RESET} $*" | tee -a ~/.local/log/power-management.log
+}
+
+log_warning() {
+    echo -e "${NORD_YELLOW}[WARNING]${NORD_RESET} $*" | tee -a ~/.local/log/power-management.log
+}
+
+log_error() {
+    echo -e "${NORD_RED}[ERROR]${NORD_RESET} $*" | tee -a ~/.local/log/power-management.log
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 🔧 HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+ensure_log_dir() {
+    mkdir -p ~/.local/log
+}
+
+is_on_battery() {
+    if [[ -f /sys/class/power_supply/BAT*/status ]]; then
+        local status
+        status=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || echo "Unknown")
+        [[ "$status" == "Discharging" ]]
+    else
+        # Desktop system - assume always on AC
+        return 1
+    fi
+}
+
+get_battery_level() {
+    if [[ -f /sys/class/power_supply/BAT*/capacity ]]; then
+        cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo "100"
+    else
+        echo "100"
+    fi
+}
+
+show_usage() {
+    cat << EOF
+${NORD_BLUE}🔒 Lock and Sleep Script${NORD_RESET}
+
+${NORD_GREEN}USAGE:${NORD_RESET}
+  $(basename "$0") [OPTIONS]
+
+${NORD_GREEN}OPTIONS:${NORD_RESET}
+  lock        Lock screen immediately
+  sleep       Lock screen and suspend system
+  hibernate   Lock screen and hibernate system
+  display-off Lock screen and turn off displays only
+  --help, -h  Show this help message
+
+${NORD_GREEN}EXAMPLES:${NORD_RESET}
+  $(basename "$0") lock         # Just lock the screen
+  $(basename "$0") sleep        # Lock and suspend
+  $(basename "$0") hibernate    # Lock and hibernate
+  $(basename "$0") display-off  # Lock and turn off displays
+
+${NORD_YELLOW}NOTE:${NORD_RESET} If no option is provided, behavior depends on power state:
+  - On battery: lock and suspend
+  - On AC power: lock only
+EOF
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 🔒 POWER MANAGEMENT FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+lock_screen() {
+    log_info "Locking screen..."
+    
+    # Check if hyprlock is already running
+    if pgrep -x "hyprlock" > /dev/null; then
+        log_warning "hyprlock is already running"
+        return 0
+    fi
+    
+    # Start hyprlock
+    if hyprlock; then
+        log_success "Screen locked successfully"
+        return 0
+    else
+        log_error "Failed to lock screen"
+        return 1
+    fi
+}
+
+suspend_system() {
+    log_info "Preparing to suspend system..."
+    
+    # Lock screen first
+    if ! lock_screen; then
+        log_error "Cannot suspend - failed to lock screen"
+        return 1
+    fi
+    
+    # Wait a moment for lock to establish
+    sleep 2
+    
+    log_info "Suspending system..."
+    if systemctl suspend; then
+        log_success "System suspended successfully"
+        return 0
+    else
+        log_error "Failed to suspend system"
+        return 1
+    fi
+}
+
+hibernate_system() {
+    log_info "Preparing to hibernate system..."
+    
+    # Lock screen first
+    if ! lock_screen; then
+        log_error "Cannot hibernate - failed to lock screen"
+        return 1
+    fi
+    
+    # Wait a moment for lock to establish
+    sleep 2
+    
+    log_info "Hibernating system..."
+    if systemctl hibernate; then
+        log_success "System hibernated successfully"
+        return 0
+    else
+        log_error "Failed to hibernate system"
+        return 1
+    fi
+}
+
+display_off_only() {
+    log_info "Locking screen and turning off displays..."
+    
+    # Lock screen first
+    if ! lock_screen; then
+        log_error "Cannot turn off displays - failed to lock screen"
+        return 1
+    fi
+    
+    # Wait a moment for lock to establish
+    sleep 2
+    
+    log_info "Turning off displays..."
+    if hyprctl dispatch dpms off; then
+        log_success "Displays turned off successfully"
+        return 0
+    else
+        log_error "Failed to turn off displays"
+        return 1
+    fi
+}
+
+smart_lock_and_sleep() {
+    local battery_level
+    battery_level=$(get_battery_level)
+    
+    log_info "Smart power management activated"
+    log_info "Battery level: ${battery_level}%"
+    
+    if is_on_battery; then
+        log_info "On battery power - will lock and suspend"
+        if [[ "$battery_level" -lt 15 ]]; then
+            log_warning "Low battery (${battery_level}%) - hibernating instead of suspending"
+            hibernate_system
+        else
+            suspend_system
+        fi
+    else
+        log_info "On AC power - will lock screen only"
+        lock_screen
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 🚀 MAIN EXECUTION
+# ═══════════════════════════════════════════════════════════════════
+
+main() {
+    ensure_log_dir
+    
+    log_info "Power management script started with args: $*"
+    
+    case "${1:-smart}" in
+        "lock")
+            lock_screen
+            ;;
+        "sleep")
+            suspend_system
+            ;;
+        "hibernate")
+            hibernate_system
+            ;;
+        "display-off")
+            display_off_only
+            ;;
+        "smart")
+            smart_lock_and_sleep
+            ;;
+        "--help"|"-h"|"help")
+            show_usage
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            echo
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function with all arguments
+main "$@"

@@ -1,0 +1,26 @@
+#!/bin/bash
+WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
+
+# Build associative array: filename -> full path
+declare -A wallpapers
+while IFS= read -r path; do
+    name=$(basename "$path")
+    wallpapers["$name"]="$path"
+done < <(find "$WALLPAPER_DIR" -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.webp" \))
+
+# Show only filenames in fuzzel
+selected=$(printf '%s\n' "${!wallpapers[@]}" | sort | fuzzel --dmenu --prompt "Wallpaper: ")
+[[ -z "$selected" ]] && exit 0
+
+# Get full path from selection
+WALLPAPER="${wallpapers[$selected]}"
+[[ -z "$WALLPAPER" ]] && exit 1
+
+# Set wallpaper with wave transition
+swww img "$WALLPAPER" --transition-type wave --transition-angle 45 --transition-duration 2
+
+# Sync hyprlock background
+HYPRLOCK_CONF="$HOME/.config/hypr/hyprlock.conf"
+if [[ -f "$HYPRLOCK_CONF" ]]; then
+    sed -i "/^background {/,/^}/ s|^\([[:space:]]*path = \).*|\1${WALLPAPER}|" "$HYPRLOCK_CONF"
+fi

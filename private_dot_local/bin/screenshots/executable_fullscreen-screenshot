@@ -1,0 +1,15 @@
+#!/bin/bash
+# Full Screen Screenshot
+# Capture entire screen and save + copy
+
+SCREENSHOT_DIR="$HOME/Pictures/Screenshots"
+mkdir -p "$SCREENSHOT_DIR"
+
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+FILENAME="$SCREENSHOT_DIR/fullscreen_$TIMESTAMP.png"
+
+# Capture full screen
+grim "$FILENAME"
+# Copy to clipboard
+grim - | wl-copy
+notify-send "Screenshot" "Full screen saved to $FILENAME and copied to clipboard" -i "$FILENAME"

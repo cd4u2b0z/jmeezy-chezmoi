@@ -1,0 +1,17 @@
+#!/bin/bash
+# ╔═══════════════════════════════════════════════════════════════════╗
+# ║  📁 THUNAR DARK LAUNCHER - NATIVE 4K                             ║
+# ║  Force dark theme launcher for native 4K resolution              ║
+# ╚═══════════════════════════════════════════════════════════════════╝
+
+# Set comprehensive dark theme environment variables
+export GTK_THEME=Arc-Dark
+export GTK2_RC_FILES=~/.gtkrc-2.0
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
+
+# Force dark theme for this session
+export GTK_APPLICATION_PREFER_DARK_THEME=1
+
+# Launch Thunar with dark theme enforcement
+exec env GTK_THEME=Arc-Dark thunar "$@"

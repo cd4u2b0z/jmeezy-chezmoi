@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  🎨 THEME SWITCHER - System-wide theme management                 ║
+# ║  Powered by wallust + swww for craig@grim-reefer                  ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+set -euo pipefail
+
+# ═══════════════════════════════════════════════════════════════════
+# 📂 CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════
+
+WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
+THEME_CACHE="$HOME/.cache/theme-switcher"
+CURRENT_THEME_FILE="$THEME_CACHE/current-theme"
+
+# Ensure cache directory exists
+mkdir -p "$THEME_CACHE"
+
+# ═══════════════════════════════════════════════════════════════════
+# 🎨 THEME DEFINITIONS (theme -> wallpaper mapping)
+# ═══════════════════════════════════════════════════════════════════
+
+declare -A THEME_WALLPAPERS=(
+    ["Nord"]="girlinsnow.jpg"
+    ["Gruvbox"]="stormiscoming.jpg"
+    ["Gruvbox-Dark"]="stormiscoming.jpg"
+    ["Catppuccin-Mocha"]="blue_woods.png"
+    ["Catppuccin-Macchiato"]="blue_woods.png"
+    ["Dracula"]="Alex3.jpg"
+    ["Tokyo-Night"]="blue_woods.png"
+    ["Tokyo-Night-Storm"]="blue_woods.png"
+    ["Everforest-Dark-Medium"]="blue_woods.png"
+    ["Rosé-Pine"]="girlinsnow.jpg"
+    ["Rosé-Pine-Moon"]="girlinsnow.jpg"
+    ["One-Dark"]="stormiscoming.jpg"
+    ["Kanagawa-Wave"]="white_dragon.png"
+    ["Kanagawa-Dragon"]="white_dragon.png"
+    ["Srcery"]="stormiscoming.jpg"
+    ["Monokai-Pro"]="tes.png"
+)
+
+# Popular themes to show in menu
+FAVORITE_THEMES=(
+    "Nord"
+    "Gruvbox-Dark"
+    "Catppuccin-Mocha"
+    "Dracula"
+    "Tokyo-Night"
+    "Tokyo-Night-Storm"
+    "Everforest-Dark-Medium"
+    "Rosé-Pine"
+    "Rosé-Pine-Moon"
+    "One-Dark"
+    "Kanagawa-Wave"
+    "Srcery"
+    "Monokai-Pro"
+    "───────────────"
+    "More Themes..."
+    "From Wallpaper..."
+)
+
+# ═══════════════════════════════════════════════════════════════════
+# 🔧 HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+notify() {
+    notify-send -t 2000 -i preferences-desktop-theme "Theme Switcher" "$1" 2>/dev/null || true
+}
+
+get_current_theme() {
+    if [[ -f "$CURRENT_THEME_FILE" ]]; then
+        cat "$CURRENT_THEME_FILE"
+    else
+        echo "Nord"
+    fi
+}
+
+save_current_theme() {
+    echo "$1" > "$CURRENT_THEME_FILE"
+}
+
+ensure_swww() {
+    if ! pgrep -x swww-daemon > /dev/null; then
+        swww-daemon &
+        sleep 2
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 🖼️ WALLPAPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+set_wallpaper() {
+    local wallpaper="$1"
+    local transition="${2:-grow}"
+    
+    ensure_swww
+    
+    if [[ -f "$WALLPAPER_DIR/$wallpaper" ]]; then
+        swww img "$WALLPAPER_DIR/$wallpaper" \
+            --transition-type "$transition" \
+            --transition-duration 2 \
+            --transition-fps 60 \
+            --transition-pos center
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 🎨 THEME APPLICATION
+# ═══════════════════════════════════════════════════════════════════
+
+apply_theme() {
+    local theme="$1"
+    
+    notify "Applying $theme..."
+    
+    # Apply wallust theme
+    wallust theme "$theme" -q
+    
+    # Set matching wallpaper if defined
+    if [[ -v "THEME_WALLPAPERS[$theme]" ]]; then
+        set_wallpaper "${THEME_WALLPAPERS[$theme]}" "grow"
+    fi
+    
+    # Reload applications
+    reload_apps
+    
+    # Save current theme
+    save_current_theme "$theme"
+    
+    notify "Theme: $theme applied!"
+}
+
+apply_from_wallpaper() {
+    local wallpaper="$1"
+    
+    notify "Extracting colors from wallpaper..."
+    
+    # Set wallpaper with animation
+    ensure_swww
+    swww img "$wallpaper" \
+        --transition-type grow \
+        --transition-duration 2 \
+        --transition-fps 60 \
+        --transition-pos center
+    
+    # Extract colors
+    wallust run "$wallpaper" -q
+    
+    # Reload apps
+    reload_apps
+    
+    save_current_theme "Custom ($(basename "$wallpaper"))"
+    
+    notify "Colors extracted from $(basename "$wallpaper")!"
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 🔄 APP RELOAD FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+reload_apps() {
+    # Reload Kitty (all instances)
+    for socket in /tmp/kitty-socket*; do
+        if [[ -S "$socket" ]]; then
+            kitty @ --to unix:"$socket" set-colors -a ~/.config/kitty/wallust-colors.conf 2>/dev/null || true
+        fi
+    done
+    
+    # Alternative: send SIGUSR1 to kitty processes
+    pkill -USR1 kitty 2>/dev/null || true
+    
+    # Reload Waybar
+    pkill -SIGUSR2 waybar 2>/dev/null || true
+    
+    # If waybar doesn't support SIGUSR2 reload, restart it
+    if pgrep -x waybar > /dev/null; then
+        killall waybar 2>/dev/null || true
+        sleep 0.5
+        waybar &
+        disown
+    fi
+    
+    # Reload Cava (needs restart)
+    if pgrep -x cava > /dev/null; then
+        # Merge base config with colors
+        cat ~/.config/cava/config-base ~/.config/cava/wallust-colors > ~/.config/cava/config
+        pkill -USR1 cava 2>/dev/null || pkill cava 2>/dev/null || true
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 📋 MENU FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+show_favorites_menu() {
+    local current=$(get_current_theme)
+    
+    printf '%s\n' "${FAVORITE_THEMES[@]}" | fuzzel --dmenu \
+        --prompt "Theme (current: $current): " \
+        --width 40 \
+        --lines 18
+}
+
+show_all_themes_menu() {
+    wallust theme -l 2>/dev/null | tr ',' '\n' | sed 's/^ *//' | sort | fuzzel --dmenu \
+        --prompt "All Themes: " \
+        --width 50 \
+        --lines 20
+}
+
+show_wallpaper_menu() {
+    find "$WALLPAPER_DIR" -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" -o -name "*.webp" \) | \
+        xargs -I{} basename {} | sort | fuzzel --dmenu \
+        --prompt "Select Wallpaper: " \
+        --width 50 \
+        --lines 15
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 🚀 MAIN
+# ═══════════════════════════════════════════════════════════════════
+
+main() {
+    case "${1:-menu}" in
+        "menu"|"")
+            selection=$(show_favorites_menu)
+            
+            case "$selection" in
+                "")
+                    exit 0
+                    ;;
+                "───────────────")
+                    exit 0
+                    ;;
+                "More Themes...")
+                    selection=$(show_all_themes_menu)
+                    [[ -n "$selection" ]] && apply_theme "$selection"
+                    ;;
+                "From Wallpaper...")
+                    wallpaper=$(show_wallpaper_menu)
+                    [[ -n "$wallpaper" ]] && apply_from_wallpaper "$WALLPAPER_DIR/$wallpaper"
+                    ;;
+                *)
+                    apply_theme "$selection"
+                    ;;
+            esac
+            ;;
+        "set")
+            [[ -n "${2:-}" ]] && apply_theme "$2"
+            ;;
+        "wallpaper")
+            [[ -n "${2:-}" ]] && apply_from_wallpaper "$2"
+            ;;
+        "reload")
+            reload_apps
+            ;;
+        "current")
+            get_current_theme
+            ;;
+        "list")
+            wallust theme -l
+            ;;
+        *)
+            echo "Usage: theme-switcher [menu|set <theme>|wallpaper <path>|reload|current|list]"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

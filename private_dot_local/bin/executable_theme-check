@@ -1,0 +1,302 @@
+#!/bin/bash
+#!/bin/bash
+
+# ╔═══════════════════════════════════════════════════════════════════╗
+# ║  🎨 COMPREHENSIVE THEME CHECKER - NORD VERIFICATION              ║
+# ║  Validates all theme components and configurations                ║
+# ╚═══════════════════════════════════════════════════════════════════╝
+
+# Color definitions for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m' # No Color
+
+# Symbols
+CHECK="✅"
+CROSS="❌"
+WARNING="⚠️"
+INFO="ℹ️"
+ARROW="➜"
+
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║  🎨 COMPREHENSIVE THEME STATUS CHECKER                           ║${NC}"
+echo -e "${CYAN}║  Verifying Nord-themed Arch Linux configuration                  ║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════╝${NC}"
+echo
+
+# ═══════════════════════════════════════════════════════════════════
+# 🎨 GTK THEME VERIFICATION
+# ═══════════════════════════════════════════════════════════════════
+
+echo -e "${BLUE}🎨 GTK THEME CONFIGURATION${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check GTK-2.0 theme
+if [ -f "$HOME/.gtkrc-2.0" ]; then
+    GTK2_THEME=$(grep 'gtk-theme-name' "$HOME/.gtkrc-2.0" | cut -d'"' -f2)
+    if [ "$GTK2_THEME" = "Arc-Dark" ]; then
+        echo -e "${CHECK} GTK-2.0: ${GREEN}Arc-Dark${NC}"
+    else
+        echo -e "${CROSS} GTK-2.0: ${RED}$GTK2_THEME (should be Arc-Dark)${NC}"
+    fi
+else
+    echo -e "${CROSS} GTK-2.0: ${RED}Configuration missing${NC}"
+fi
+
+# Check GTK-3.0 theme
+if [ -f "$HOME/.config/gtk-3.0/settings.ini" ]; then
+    GTK3_THEME=$(grep 'gtk-theme-name' "$HOME/.config/gtk-3.0/settings.ini" | cut -d'=' -f2)
+    if [ "$GTK3_THEME" = "Arc-Dark" ]; then
+        echo -e "${CHECK} GTK-3.0: ${GREEN}Arc-Dark${NC}"
+    else
+        echo -e "${CROSS} GTK-3.0: ${RED}$GTK3_THEME (should be Arc-Dark)${NC}"
+    fi
+else
+    echo -e "${CROSS} GTK-3.0: ${RED}Configuration missing${NC}"
+fi
+
+# Check GTK-4.0 theme
+if [ -f "$HOME/.config/gtk-4.0/settings.ini" ]; then
+    GTK4_THEME=$(grep 'gtk-theme-name' "$HOME/.config/gtk-4.0/settings.ini" | cut -d'=' -f2)
+    if [ "$GTK4_THEME" = "Arc-Dark" ]; then
+        echo -e "${CHECK} GTK-4.0: ${GREEN}Arc-Dark${NC}"
+    else
+        echo -e "${CROSS} GTK-4.0: ${RED}$GTK4_THEME (should be Arc-Dark)${NC}"
+    fi
+else
+    echo -e "${CROSS} GTK-4.0: ${RED}Configuration missing${NC}"
+fi
+
+echo
+
+# ═══════════════════════════════════════════════════════════════════
+# 🎯 ICON THEME VERIFICATION
+# ═══════════════════════════════════════════════════════════════════
+
+echo -e "${PURPLE}🎯 ICON THEME CONFIGURATION${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check icon theme in GTK configs
+if [ -f "$HOME/.config/gtk-3.0/settings.ini" ]; then
+    ICON_THEME=$(grep 'gtk-icon-theme-name' "$HOME/.config/gtk-3.0/settings.ini" | cut -d'=' -f2)
+    if [ "$ICON_THEME" = "Papirus-Dark" ]; then
+        echo -e "${CHECK} Icon Theme: ${GREEN}Papirus-Dark${NC}"
+    else
+        echo -e "${WARNING} Icon Theme: ${YELLOW}$ICON_THEME (recommended: Papirus-Dark)${NC}"
+    fi
+fi
+
+# Check if Papirus icons are installed
+if pacman -Qi papirus-icon-theme >/dev/null 2>&1; then
+    echo -e "${CHECK} Papirus Icons: ${GREEN}Installed${NC}"
+else
+    echo -e "${CROSS} Papirus Icons: ${RED}Not installed${NC}"
+    echo -e "  ${ARROW} Install with: ${CYAN}yay -S papirus-icon-theme${NC}"
+fi
+
+echo
+
+# ═══════════════════════════════════════════════════════════════════
+# 🖥️ HYPRLAND THEME VERIFICATION
+# ═══════════════════════════════════════════════════════════════════
+
+echo -e "${CYAN}🖥️ HYPRLAND CONFIGURATION${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [ -f "$HOME/.config/hypr/hyprland.conf" ]; then
+    echo -e "${CHECK} Hyprland Config: ${GREEN}Found${NC}"
+    
+    # Check for Nord colors in border configuration
+    if grep -q "col.active_border.*rgba(129, 161, 193" "$HOME/.config/hypr/hyprland.conf"; then
+        echo -e "${CHECK} Border Colors: ${GREEN}Nord theme detected${NC}"
+    else
+        echo -e "${WARNING} Border Colors: ${YELLOW}May not be using Nord theme${NC}"
+    fi
+    
+    # Check for theme keybindings
+    if grep -q "apply-dark-theme" "$HOME/.config/hypr/hyprland.conf"; then
+        echo -e "${CHECK} Theme Keybindings: ${GREEN}Configured${NC}"
+    else
+        echo -e "${WARNING} Theme Keybindings: ${YELLOW}Not found${NC}"
+    fi
+else
+    echo -e "${CROSS} Hyprland Config: ${RED}Not found${NC}"
+fi
+
+echo
+
+# ═══════════════════════════════════════════════════════════════════
+# 🖥️ TERMINAL THEME VERIFICATION
+# ═══════════════════════════════════════════════════════════════════
+
+echo -e "${WHITE}🖥️ TERMINAL CONFIGURATION${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check Kitty configuration
+if [ -f "$HOME/.config/kitty/kitty.conf" ]; then
+    echo -e "${CHECK} Kitty Config: ${GREEN}Found${NC}"
+    
+    if grep -q "Nord" "$HOME/.config/kitty/kitty.conf" || grep -q "#2E3440" "$HOME/.config/kitty/kitty.conf"; then
+        echo -e "${CHECK} Kitty Theme: ${GREEN}Nord colors detected${NC}"
+    else
+        echo -e "${WARNING} Kitty Theme: ${YELLOW}Nord colors not detected${NC}"
+    fi
+else
+    echo -e "${CROSS} Kitty Config: ${RED}Not found${NC}"
+fi
+
+# Check Starship configuration
+if [ -f "$HOME/.config/starship.toml" ]; then
+    echo -e "${CHECK} Starship Config: ${GREEN}Found${NC}"
+    
+    if grep -q "#81A1C1\|#88C0D0\|#8FBCBB" "$HOME/.config/starship.toml"; then
+        echo -e "${CHECK} Starship Theme: ${GREEN}Nord colors detected${NC}"
+    else
+        echo -e "${WARNING} Starship Theme: ${YELLOW}Nord colors not detected${NC}"
+    fi
+else
+    echo -e "${CROSS} Starship Config: ${RED}Not found${NC}"
+fi
+
+echo
+
+# ═══════════════════════════════════════════════════════════════════
+# 📁 FILE MANAGER VERIFICATION
+# ═══════════════════════════════════════════════════════════════════
+
+echo -e "${GREEN}📁 FILE MANAGER CONFIGURATION${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check if Arc theme is installed
+if pacman -Qi arc-gtk-theme >/dev/null 2>&1; then
+    echo -e "${CHECK} Arc Theme: ${GREEN}Installed${NC}"
+else
+    echo -e "${CROSS} Arc Theme: ${RED}Not installed${NC}"
+    echo -e "  ${ARROW} Install with: ${CYAN}yay -S arc-gtk-theme${NC}"
+fi
+
+# Check if Thunar dark script exists
+if [ -f "$HOME/.local/bin/thunar-dark" ]; then
+    echo -e "${CHECK} Thunar Dark Script: ${GREEN}Available${NC}"
+else
+    echo -e "${CROSS} Thunar Dark Script: ${RED}Missing${NC}"
+fi
+
+# Check if GVFS is installed for mounting
+if pacman -Qi gvfs >/dev/null 2>&1; then
+    echo -e "${CHECK} GVFS Mounting: ${GREEN}Installed${NC}"
+else
+    echo -e "${WARNING} GVFS Mounting: ${YELLOW}Not installed (recommended)${NC}"
+fi
+
+echo
+
+# ═══════════════════════════════════════════════════════════════════
+# 🔧 PRODUCTIVITY TOOLS VERIFICATION
+# ═══════════════════════════════════════════════════════════════════
+
+echo -e "${YELLOW}🔧 PRODUCTIVITY TOOLS${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check installed tools
+tools=("fzf" "ripgrep" "fd" "bat" "btop" "fastfetch" "timeshift")
+for tool in "${tools[@]}"; do
+    if command -v "$tool" >/dev/null 2>&1; then
+        echo -e "${CHECK} $tool: ${GREEN}Installed${NC}"
+    else
+        echo -e "${CROSS} $tool: ${RED}Not installed${NC}"
+    fi
+done
+
+echo
+
+# ═══════════════════════════════════════════════════════════════════
+# 📋 ENVIRONMENT VARIABLES
+# ═══════════════════════════════════════════════════════════════════
+
+echo -e "${CYAN}📋 ENVIRONMENT VARIABLES${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [ "$GTK_THEME" = "Arc-Dark" ]; then
+    echo -e "${CHECK} GTK_THEME: ${GREEN}$GTK_THEME${NC}"
+else
+    echo -e "${WARNING} GTK_THEME: ${YELLOW}${GTK_THEME:-Not set} (should be Arc-Dark)${NC}"
+fi
+
+if [ "$QT_QPA_PLATFORMTHEME" = "gtk3" ]; then
+    echo -e "${CHECK} QT_QPA_PLATFORMTHEME: ${GREEN}$QT_QPA_PLATFORMTHEME${NC}"
+else
+    echo -e "${WARNING} QT_QPA_PLATFORMTHEME: ${YELLOW}${QT_QPA_PLATFORMTHEME:-Not set} (should be gtk3)${NC}"
+fi
+
+echo
+
+# ═══════════════════════════════════════════════════════════════════
+# 🎯 RECOMMENDATIONS
+# ═══════════════════════════════════════════════════════════════════
+
+echo -e "${PURPLE}🎯 RECOMMENDATIONS${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check if theme script exists
+if [ -f "$HOME/.local/bin/apply-dark-theme" ]; then
+    echo -e "${CHECK} Run ${CYAN}~/.local/bin/apply-dark-theme${NC} to fix any theme issues"
+else
+    echo -e "${CROSS} Theme application script missing"
+fi
+
+echo -e "${INFO} Use ${CYAN}fmd${NC} alias to open Thunar with dark theme"
+echo -e "${INFO} Use ${CYAN}theme-gui${NC} alias to open visual theme selector"
+echo -e "${INFO} Use ${CYAN}full-update${NC} alias for complete system maintenance"
+
+echo
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║  Theme check complete! Fix any ${RED}❌${CYAN} items above for best experience  ║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════╝${NC}"
+
+echo "🔍 Current Theme Status:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+echo ""
+echo "📋 GTK Settings (gsettings):"
+echo "   GTK Theme: $(gsettings get org.gnome.desktop.interface gtk-theme)"
+echo "   Icon Theme: $(gsettings get org.gnome.desktop.interface icon-theme)"
+echo "   Font: $(gsettings get org.gnome.desktop.interface font-name)"
+echo "   Color Scheme: $(gsettings get org.gnome.desktop.interface color-scheme)"
+
+echo ""
+echo "📁 GTK Config Files:"
+if [ -f ~/.config/gtk-3.0/settings.ini ]; then
+    echo "   ✅ GTK-3.0 config exists"
+    echo "      Theme: $(grep gtk-theme-name ~/.config/gtk-3.0/settings.ini 2>/dev/null || echo 'Not set')"
+    echo "      Icons: $(grep gtk-icon-theme-name ~/.config/gtk-3.0/settings.ini 2>/dev/null || echo 'Not set')"
+else
+    echo "   ❌ GTK-3.0 config missing"
+fi
+
+if [ -f ~/.gtkrc-2.0 ]; then
+    echo "   ✅ GTK-2.0 config exists"
+else
+    echo "   ❌ GTK-2.0 config missing"
+fi
+
+echo ""
+echo "🎨 Available Icon Themes:"
+ls /usr/share/icons/ | grep -i papirus | sed 's/^/   • /'
+
+echo ""
+echo "🛠️  Quick Actions:"
+echo "   • Run theme switcher: /home/craig/.local/bin/apply-dark-theme"
+echo "   • Open modern theme manager: nwg-look"
+echo "   • Open classic theme manager: lxappearance"
+echo "   • Launch dark Thunar: /home/craig/.local/bin/thunar-dark"
+
+echo ""
+echo "🔧 Environment Variables (current session):"
+echo "   GTK_THEME: ${GTK_THEME:-'Not set'}"
+echo "   GTK2_RC_FILES: ${GTK2_RC_FILES:-'Not set'}"

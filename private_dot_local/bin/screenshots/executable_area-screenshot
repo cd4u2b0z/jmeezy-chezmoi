@@ -1,0 +1,19 @@
+#!/bin/bash
+# Area Screenshot with slurp + grim
+# Select area and copy to clipboard + save file
+
+SCREENSHOT_DIR="$HOME/Pictures/Screenshots"
+mkdir -p "$SCREENSHOT_DIR"
+
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+FILENAME="$SCREENSHOT_DIR/screenshot_$TIMESTAMP.png"
+
+# Use slurp to select area, then grim to capture
+if SELECTION=$(slurp); then
+    grim -g "$SELECTION" "$FILENAME"
+    # Also copy to clipboard
+    grim -g "$SELECTION" - | wl-copy
+    notify-send "Screenshot" "Area saved to $FILENAME and copied to clipboard" -i "$FILENAME"
+else
+    notify-send "Screenshot" "Selection cancelled"
+fi
