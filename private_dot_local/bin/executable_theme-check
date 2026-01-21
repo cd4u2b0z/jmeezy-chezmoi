@@ -291,10 +291,10 @@ ls /usr/share/icons/ | grep -i papirus | sed 's/^/   • /'
 
 echo ""
 echo "🛠️  Quick Actions:"
-echo "   • Run theme switcher: /home/craig/.local/bin/apply-dark-theme"
+echo "   • Run theme switcher: /home/jmeezy/.local/bin/apply-dark-theme"
 echo "   • Open modern theme manager: nwg-look"
 echo "   • Open classic theme manager: lxappearance"
-echo "   • Launch dark Thunar: /home/craig/.local/bin/thunar-dark"
+echo "   • Launch dark Thunar: /home/jmeezy/.local/bin/thunar-dark"
 
 echo ""
 echo "🔧 Environment Variables (current session):"

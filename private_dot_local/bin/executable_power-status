@@ -2,7 +2,7 @@
 
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║  ⚡ POWER STATUS SCRIPT                                           ║
-# ║  Monitor power management status for craig@grim-reefer           ║
+# ║  Monitor power management status for jmeezy@cachypirate           ║
 # ╚═══════════════════════════════════════════════════════════════════╝
 
 set -euo pipefail
